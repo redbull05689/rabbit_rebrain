@@ -2,7 +2,7 @@
 # Настройки доступа
 USER=guest
 PASS=guest
-HOST=localhost
+HOST=89.169.159.219
 PORT=15672
 
 # функция для вызова rabbitmqadmin
@@ -10,85 +10,52 @@ r() {
   rabbitmqadmin -u $USER -p $PASS -H $HOST -P $PORT "$@"
 }
 
-echo ">>> Создаем очереди..."
-r declare queue name=q_billing durable=true
-r declare queue name=q_packaging_europe durable=true
-r declare queue name=q_packaging_asia durable=true
-r declare queue name=q_delivery_msk durable=true
-r declare queue name=q_delivery_spb durable=true
-r declare queue name=q_delivery_ekb durable=true
-r declare queue name=q_delivery_nsb durable=true
-r declare queue name=q_delivery_large durable=true
-r declare queue name=q_call_center durable=true
-r declare queue name=q_monitoring durable=true arguments='{"x-queue-type":"stream"}'
-r declare queue name=q_notification durable=true arguments='{"x-message-ttl":3600000}'
+r declare exchange name=orders type=topic durable=true
 
-echo ">>> Создаем основной exchange x_main (topic)..."
-r declare exchange name=x_main type=topic durable=true
+r declare queue name=ordering durable=true
+r declare queue name=billing durable=true
+r declare queue name=packaging durable=true
+r declare queue name=delivery durable=true
+r declare queue name=call_center durable=true
+r declare queue name=monitoring durable=true
+r declare queue name=notification durable=true
 
-echo ">>> Привязываем очереди к x_main..."
 
-# billing
-r declare binding source=x_main destination=q_billing routing_key="order.placed"
+r declare binding source=orders destination=billing routing_key="order.created"
+r declare binding source=orders destination=monitoring routing_key="order.*"
+r declare binding source=orders destination=notification routing_key="order.*"
 
-# packaging europe (Москва, СПб)
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.payed"     arguments='{"x-match":"any","city":"msk"}'
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.payed"     arguments='{"x-match":"any","city":"spb"}'
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.cancelled" arguments='{"x-match":"any","city":"msk"}'
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.cancelled" arguments='{"x-match":"any","city":"spb"}'
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.cancelled.returned" arguments='{"x-match":"any","city":"msk"}'
-r declare binding source=x_main destination=q_packaging_europe routing_key="order.cancelled.returned" arguments='{"x-match":"any","city":"spb"}'
 
-# packaging asia (Екатеринбург, Новосибирск)
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.payed"     arguments='{"x-match":"any","city":"ekb"}'
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.payed"     arguments='{"x-match":"any","city":"nsb"}'
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.cancelled" arguments='{"x-match":"any","city":"ekb"}'
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.cancelled" arguments='{"x-match":"any","city":"nsb"}'
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.cancelled.returned" arguments='{"x-match":"any","city":"ekb"}'
-r declare binding source=x_main destination=q_packaging_asia routing_key="order.cancelled.returned" arguments='{"x-match":"any","city":"nsb"}'
+r declare binding source=orders destination=packaging routing_key="order.paid"
+r declare binding source=orders destination=monitoring routing_key="order.*"
+r declare binding source=orders destination=notification routing_key="order.*"
 
-# delivery msk
-r declare binding source=x_main destination=q_delivery_msk routing_key="order.packaged"     arguments='{"x-match":"any","city":"msk"}'
-r declare binding source=x_main destination=q_delivery_msk routing_key="order.cancelled"    arguments='{"x-match":"any","city":"msk"}'
-r declare binding source=x_main destination=q_delivery_msk routing_key="delivery.updateInfo" arguments='{"x-match":"any","city":"msk"}'
 
-# delivery spb
-r declare binding source=x_main destination=q_delivery_spb routing_key="order.packaged"     arguments='{"x-match":"any","city":"spb"}'
-r declare binding source=x_main destination=q_delivery_spb routing_key="order.cancelled"    arguments='{"x-match":"any","city":"spb"}'
-r declare binding source=x_main destination=q_delivery_spb routing_key="delivery.updateInfo" arguments='{"x-match":"any","city":"spb"}'
+r declare binding source=orders destination=call_center routing_key="order.packed"
+r declare binding source=orders destination=monitoring routing_key="order.*"
+r declare binding source=orders destination=notification routing_key="order.*"
 
-# delivery ekb
-r declare binding source=x_main destination=q_delivery_ekb routing_key="order.packaged"     arguments='{"x-match":"any","city":"ekb"}'
-r declare binding source=x_main destination=q_delivery_ekb routing_key="order.cancelled"    arguments='{"x-match":"any","city":"ekb"}'
-r declare binding source=x_main destination=q_delivery_ekb routing_key="delivery.updateInfo" arguments='{"x-match":"any","city":"ekb"}'
+r declare binding source=orders destination=delivery routing_key="order.confirmed"
 
-# delivery nsb
-r declare binding source=x_main destination=q_delivery_nsb routing_key="order.packaged"     arguments='{"x-match":"any","city":"nsb"}'
-r declare binding source=x_main destination=q_delivery_nsb routing_key="order.cancelled"    arguments='{"x-match":"any","city":"nsb"}'
-r declare binding source=x_main destination=q_delivery_nsb routing_key="delivery.updateInfo" arguments='{"x-match":"any","city":"nsb"}'
+r declare binding source=orders destination=delivery routing_key="order.updated"
+r declare binding source=orders destination=monitoring routing_key="order.*"
+r declare binding source=orders destination=notification routing_key="order.*"
 
-# delivery large (все города, только крупные заказы)
-r declare binding source=x_main destination=q_delivery_large routing_key="order.packaged"     arguments='{"x-match":"any","order-size":"large"}'
-r declare binding source=x_main destination=q_delivery_large routing_key="delivery.updateInfo" arguments='{"x-match":"any","order-size":"large"}'
+r declare binding source=orders destination=delivery routing_key="order.confirmed"
 
-# call_center
-r declare binding source=x_main destination=q_call_center routing_key="order.status.response"
-r declare binding source=x_main destination=q_call_center routing_key="order.packaged"
-r declare binding source=x_main destination=q_call_center routing_key="order.cancelled"
+r declare binding source=orders destination=monitoring routing_key="order.delivered"
+r declare binding source=orders destination=notification routing_key="order.delivered"
 
-# monitoring (все сообщения)
-r declare binding source=x_main destination=q_monitoring routing_key="#"
+r declare binding source=orders destination=packaging routing_key="order.returned"
+r declare binding source=orders destination=monitoring routing_key="order.returned"
+r declare binding source=orders destination=notification routing_key="order.returned"
 
-# notification
-r declare binding source=x_main destination=q_notification routing_key="order.placed"
-r declare binding source=x_main destination=q_notification routing_key="order.payed"
-r declare binding source=x_main destination=q_notification routing_key="order.packaged"
-r declare binding source=x_main destination=q_notification routing_key="order.cancelled"
-r declare binding source=x_main destination=q_notification routing_key="order.delivered"
+r declare binding source=orders destination=monitoring routing_key="order.*"
 
-echo ">>> Проверка..."
-r list exchanges
-r list queues
-r list bindings
+r declare binding source=orders destination=notification routing_key="order.*"
 
-echo ">>> Настройка завершена!"
+for q in billing packaging delivery call_center monitoring notification; do
+  r declare binding source=orders destination=$q routing_key="order.canceled"
+done
+
+echo "Инфраструктура RabbitMQ для бизнес-процесса заказов настроена!"

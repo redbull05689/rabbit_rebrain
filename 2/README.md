@@ -26,8 +26,8 @@ r declare queue name=q_call_center durable=true
 r declare queue name=q_monitoring durable=true arguments='{"x-queue-type":"stream"}'
 r declare queue name=q_notification durable=true arguments='{"x-message-ttl":3600000}'
 
-echo ">>> Создаем основной exchange x_main (topic)..."
-r declare exchange name=x_main type=topic durable=true
+echo ">>> Создаем основной exchange x_main (headers)..."
+r declare exchange name=x_main type=headers durable=true
 
 echo ">>> Привязываем очереди к x_main..."
 
